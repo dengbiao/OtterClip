@@ -19,7 +19,7 @@ SOURCE_ROOT="$STAGING/source/OtterClip"
 mkdir -p "$SOURCE_ROOT"
 cp Package.swift README.md .gitignore "$SOURCE_ROOT/"
 cp -R Sources Tests scripts Assets "$SOURCE_ROOT/"
-for file in LICENSE README.zh-CN.md CONTRIBUTING.md; do
+for file in LICENSE README.zh-CN.md CONTRIBUTING.md CHANGELOG.md; do
   if [[ -f "$file" ]]; then cp "$file" "$SOURCE_ROOT/"; fi
 done
 if [[ -d .github ]]; then cp -R .github "$SOURCE_ROOT/"; fi
