@@ -1,0 +1,38 @@
+name: macOS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Run standalone core checks
+        run: ./scripts/test-core.sh
+      - name: Build
+        run: swift build
+      - name: Run XCTest
+        run: swift test
+      - name: Run isolated clipboard checks
+        run: .build/debug/OtterClip --self-test
+      - name: Run native view checks
+        run: .build/debug/OtterClip --self-test-ui
