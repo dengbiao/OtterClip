@@ -134,6 +134,27 @@ enum PlatformChecks {
                       && reloaded.value.hotKeyIndex == 0 && reloaded.value.historyLimit == expectedLimit
                       && !reloaded.value.captureImages && !reloaded.value.captureFiles
                       && !reloaded.value.ignorePasswordApps && reloaded.value.excludedApps == fixture)
+
+                settings.selectPane(.general)
+                shortcutPopup?.selectItem(at: 1)
+                var restartCalls = 0
+                var savedBeforeRestart = false
+                settings.onRestart = {
+                    restartCalls += 1
+                    savedBeforeRestart = PreferencesStore(directory: settingsDirectory).value.hotKeyIndex == 1
+                }
+                let restart = visibleSettingsViews().compactMap { $0 as? NSButton }.first { $0.title == "重新启动" }
+                restart?.performClick(nil)
+                check("restart saves pending settings before requesting a relaunch",
+                      restart != nil && restartCalls == 1 && savedBeforeRestart && preferences.lastError == nil)
+
+                let preferencesFile = settingsDirectory.appendingPathComponent("preferences.json")
+                try FileManager.default.removeItem(at: preferencesFile)
+                try FileManager.default.createDirectory(at: preferencesFile, withIntermediateDirectories: false)
+                shortcutPopup?.selectItem(at: 0)
+                restart?.performClick(nil)
+                check("a failed settings save keeps the app running instead of restarting",
+                      restartCalls == 1 && preferences.lastError != nil && preferences.value.hotKeyIndex == 1)
             } else { check("settings create their compact native window", false) }
         } catch {
             check("settings checks create their disposable data directory", false)

@@ -24,7 +24,7 @@ enum SettingsPane: String, CaseIterable {
 
     var contentHeight: CGFloat {
         switch self {
-        case .general: return 300
+        case .general: return 356
         case .capture: return 354
         case .privacy: return 326
         }
@@ -35,6 +35,7 @@ enum SettingsPane: String, CaseIterable {
 final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowDelegate {
     var onChanged: (() -> Void)?
     var onClearHistory: (() -> Void)?
+    var onRestart: (() -> Void)?
     private(set) var selectedPane: SettingsPane = .general
     private let store: PreferencesStore
     private let directory: URL
@@ -228,7 +229,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         append(card(rows: [
             settingRow("全局快捷键", detail: "随时唤起剪贴板历史", control: shortcut),
             settingRow("历史容量", detail: "收藏内容不计入容量", control: limit),
-            settingRow("登录时启动", detail: "登录后在菜单栏运行", control: login)
+            settingRow("登录时启动", detail: "登录后在菜单栏运行", control: login),
+            settingRow("重新启动应用", detail: "会先保存当前设置", control: actionButton("重新启动", action: #selector(restartApplication), width: 86))
         ]), to: stack)
         let note = text("用快捷键打开，选择一条记录后按回车粘贴。", size: 11, color: secondaryColor)
         append(inset(note, horizontal: 2), to: stack)
@@ -436,7 +438,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         refreshPermission()
     }
 
-    @objc private func saveSettings() {
+    @objc private func saveSettings() { _ = persistSettings() }
+
+    @objc private func restartApplication() {
+        guard persistSettings() else { return }
+        onRestart?()
+    }
+
+    private func persistSettings() -> Bool {
         window?.makeFirstResponder(nil)
         let previous = store.value
         store.value.hotKeyIndex = shortcut.indexOfSelectedItem
@@ -446,8 +455,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         store.value.ignorePasswordApps = passwords.state == .on
         store.value.excludedApps = exclusions.string
         store.save()
-        if let error = store.lastError { store.value = previous; statusLabel.stringValue = "保存失败：\(error.localizedDescription)" }
-        else { statusLabel.stringValue = "设置已保存"; onChanged?() }
+        if let error = store.lastError {
+            store.value = previous
+            statusLabel.stringValue = "保存失败：\(error.localizedDescription)"
+            return false
+        }
+        statusLabel.stringValue = "设置已保存"
+        onChanged?()
+        return true
     }
 
     func showStatus(_ text: String) { statusLabel.stringValue = text }

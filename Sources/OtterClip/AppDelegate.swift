@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var showObserver: NSObjectProtocol?
     private var pendingIssue: String?
     private let pastePermissionPrompt = PastePermissionPrompt()
+    private var isRestarting = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -146,6 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let error = self.repository.lastError { self.settings.showStatus("保存历史失败：\(error.localizedDescription)") }
         }
         settings.onClearHistory = { [weak self] in self?.clearHistory() }
+        settings.onRestart = { [weak self] in self?.restart() }
     }
 
     private func buildMenus() {
@@ -319,11 +321,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func about() {
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "OtterClip", .applicationVersion: "1.2.1", .credits: NSAttributedString(string: "本地保存 · 文本 / 图片 / 文件\n默认快捷键 ⌥⌘C")])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "OtterClip", .applicationVersion: "1.2.2", .credits: NSAttributedString(string: "本地保存 · 文本 / 图片 / 文件\n默认快捷键 ⌥⌘C")])
         NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+
+    private func restart() {
+        guard !isRestarting else { return }
+        do {
+            try AppRelauncher.scheduleRelaunch()
+            isRestarting = true
+            NSApp.terminate(nil)
+        } catch {
+            settings.showStatus("重启失败：\(error.localizedDescription)")
+        }
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         monitor?.stop()

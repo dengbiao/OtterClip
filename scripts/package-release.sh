@@ -12,7 +12,7 @@ ditto build/OtterClip.app "$DESTINATION/OtterClip.app"
 mkdir -p "$STAGING/disk"
 ditto build/OtterClip.app "$STAGING/disk/OtterClip.app"
 ln -s /Applications "$STAGING/disk/Applications"
-hdiutil create -volname OtterClip -srcfolder "$STAGING/disk" -format UDZO -ov "$DESTINATION/OtterClip-1.2.1-$(uname -m).dmg"
+hdiutil create -volname OtterClip -srcfolder "$STAGING/disk" -format UDZO -ov "$DESTINATION/OtterClip-1.2.2-$(uname -m).dmg"
 
 # Package only reviewed project paths; never include local data, Git state, or build caches.
 SOURCE_ROOT="$STAGING/source/OtterClip"

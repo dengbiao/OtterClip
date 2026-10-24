@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2
+
+- Add Restart to General settings. Pending changes are saved before restarting; a failed save leaves the app running and shows the error.
+- Wait for the current process to exit before relaunching the installed app and reopening settings.
+
 ## 1.2.1
 
 - Explain a failed automatic paste with a permission alert before opening settings. The alert confirms that the content is already copied and offers a direct authorization action or a manual-paste fallback.

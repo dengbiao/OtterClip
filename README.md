@@ -10,7 +10,7 @@ A small, native macOS clipboard history app. Keep copied text, images, and files
 
 ## Install
 
-Requires **macOS 13 or later**. Download `OtterClip-1.2.1-arm64.dmg` from [Releases](https://github.com/dengbiao/OtterClip/releases), open it, and drag **OtterClip** into Applications. The prebuilt DMG is for Apple Silicon; Intel users can [build from source](#build-from-source).
+Requires **macOS 13 or later**. Download `OtterClip-1.2.2-arm64.dmg` from [Releases](https://github.com/dengbiao/OtterClip/releases), open it, and drag **OtterClip** into Applications. The prebuilt DMG is for Apple Silicon; Intel users can [build from source](#build-from-source).
 
 The current release uses an **ad-hoc signature**, without Developer ID notarization. macOS may require you to allow it in **System Settings → Privacy & Security → Open Anyway**. Keep the application in a fixed location before granting permissions. Rebuilding or changing its signature may require granting Accessibility permission again.
 
@@ -18,6 +18,8 @@ The current release uses an **ad-hoc signature**, without Developer ID notarizat
 2. Press **Option + Command + C** to open the window; type to search and use the arrow keys to select a result.
 3. Press **⌘1–⌘9** or **⌘Return** to copy and dismiss. Press **Return** to copy, dismiss, and paste into the previous app.
 4. Automatic paste needs Accessibility permission. If it is missing, a dialog confirms that the item is already copied: choose **前往授权** to open macOS Accessibility settings, or **稍后** to return to your app and paste manually with **⌘V**. You can also grant access from settings → **隐私** (Privacy).
+
+To restart, open settings → **通用** (General) → **重新启动**. Pending settings are saved before the app restarts.
 
 The interface is currently in Simplified Chinese. If macOS requests clipboard access, allow it as appropriate for your use.
 
