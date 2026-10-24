@@ -155,6 +155,20 @@ enum PlatformChecks {
                 restart?.performClick(nil)
                 check("a failed settings save keeps the app running instead of restarting",
                       restartCalls == 1 && preferences.lastError != nil && preferences.value.hotKeyIndex == 1)
+
+                var updateActions = 0
+                settings.onCheckForUpdates = { updateActions += 1 }
+                let update = visibleSettingsViews().compactMap { $0 as? NSButton }.first { $0.title == "检查更新" }
+                update?.performClick(nil)
+                check("General settings provide a working Check for Updates entry",
+                      update != nil && updateActions == 1)
+                settings.showUpdateStatus("正在下载更新…", isBusy: true, canCancel: true)
+                update?.performClick(nil)
+                check("a running update can be cancelled without starting a separate restart",
+                      update?.title == "取消" && update?.isEnabled == true && updateActions == 2 && restart?.isEnabled == false)
+                settings.showUpdateStatus("更新失败，请检查网络后重试。", isBusy: false, canCancel: false)
+                check("an update failure restores the check and restart actions",
+                      update?.title == "检查更新" && update?.isEnabled == true && restart?.isEnabled == true)
             } else { check("settings create their compact native window", false) }
         } catch {
             check("settings checks create their disposable data directory", false)

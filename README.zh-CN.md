@@ -10,7 +10,7 @@
 
 ## 安装
 
-需要 **macOS 13 或更新版本**。从 [Releases](https://github.com/dengbiao/OtterClip/releases) 下载 `OtterClip-1.2.2-arm64.dmg`，打开后将 **OtterClip** 拖入 Applications（应用程序）。预编译 DMG 适用于 Apple Silicon；Intel Mac 可[从源码构建](#从源码构建)。
+需要 **macOS 13 或更新版本**。从 [Releases](https://github.com/dengbiao/OtterClip/releases) 下载 `OtterClip-1.3.0-arm64.dmg`（Apple Silicon）或 `OtterClip-1.3.0-x86_64.dmg`（Intel），打开后将 **OtterClip** 拖入 Applications（应用程序）。
 
 当前版本采用 **ad-hoc 本地签名**，未使用 Developer ID 公证。若 macOS 提示无法验证开发者，可按系统提供的「系统设置 → 隐私与安全性 → 仍要打开」流程允许。建议将应用放在固定位置后再授权；重新编译或更换签名后，可能需要重新授予辅助功能权限。
 
@@ -20,6 +20,10 @@
 4. 自动粘贴需要辅助功能权限。未授权时，会先弹窗说明内容已复制；点「前往授权」可直接打开系统辅助功能设置，或点「稍后」返回原应用手动按 **⌘V** 粘贴。也可以从设置 →「隐私」中授权。
 
 需要重启时，打开设置 →「通用」→「重新启动」。应用会先保存当前设置，再重新打开。
+
+后续版本可直接通过设置 →「通用」→「检查更新」升级。应用会检查 GitHub 最新稳定版本，并匹配当前架构；选择「更新并重启」后，自动下载、校验、安装和重新启动。安装前会保存设置，历史继续使用原数据目录。请从可写的应用程序文件夹运行，不要直接在 DMG 中更新。
+
+新版确认启动后才会删除旧版备份。替换或启动失败时会尝试恢复旧版；若无法安全结束新版进程，会保留应用旁隐藏的 `.OtterClip-update-*` 目录中的备份，避免覆盖仍在运行的应用。
 
 界面目前为简体中文。系统若询问剪贴板访问，请按需允许。
 
@@ -48,7 +52,7 @@
 
 ## 隐私与限制
 
-**无云同步、网络请求或遥测。剪贴板历史按原文保存在本机，没有额外加密。** 数据目录权限为 `0700`，数据文件权限为 `0600`；文件访问权限不能替代加密。
+**无云同步或遥测。剪贴板历史按原文保存在本机，没有额外加密。** 只有手动检查或下载更新时会连接 GitHub，更新请求不会包含剪贴板内容或历史。数据目录权限为 `0700`，数据文件权限为 `0600`；文件访问权限不能替代加密。
 
 数据位于 `~/Library/Application Support/ClipShelf/`：
 
@@ -91,6 +95,10 @@ CODE_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' ./scripts/buil
 ./scripts/package-release.sh
 ```
 
+打包脚本还会生成对应架构的应用 ZIP 和 `SHA256SUMS`。发布时将 ZIP 与 DMG 一同上传到标签为 `vX.Y.Z` 的 GitHub 稳定版本，应用版本必须与标签一致。更新器会校验 GitHub 资产的 SHA-256、Bundle ID、版本、架构、系统兼容性和代码签名完整性。目前使用 ad-hoc 签名，不属于 Developer ID 发布者身份验证。
+
+需要同时发布两个架构时，分别设置 `ARCH=arm64` 和 `ARCH=x86_64` 运行打包脚本，并使用不同输出目录。
+
 开发预览使用隔离数据，不开启后台记录：
 
 ```bash
@@ -104,6 +112,8 @@ open build/OtterClip.app --args --demo --no-monitor --show --data-dir /tmp/otter
 swift build
 .build/debug/OtterClip --self-test
 .build/debug/OtterClip --self-test-ui
+.build/debug/OtterClip --self-test-updates
+.build/debug/OtterClip --self-test-update-installer
 ```
 
 独立核心检查可在只有 Command Line Tools 的机器上运行。平台检查使用私有命名剪贴板和临时数据。界面检查仅操作应用自身的 AppKit 视图和私有剪贴板，不读写系统剪贴板，也不向其他应用发送键盘或鼠标事件。这些检查不能替代授予权限后的跨应用快捷键和自动粘贴人工验收。

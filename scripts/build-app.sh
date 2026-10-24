@@ -2,8 +2,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift build --configuration release --product OtterClip
-BIN_DIR="$(swift build --configuration release --show-bin-path)"
+ARCH="${ARCH:-$(uname -m)}"
+case "$ARCH" in arm64|x86_64) ;; *) printf '%s\n' "Unsupported architecture: $ARCH" >&2; exit 1 ;; esac
+swift build --configuration release --arch "$ARCH" --product OtterClip
+BIN_DIR="$(swift build --configuration release --arch "$ARCH" --show-bin-path)"
 APP="$PWD/build/OtterClip.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/OtterClip" "$APP/Contents/MacOS/OtterClip"
@@ -17,8 +19,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleDisplayName</key><string>OtterClip</string>
   <key>CFBundleExecutable</key><string>OtterClip</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.2.2</string>
-  <key>CFBundleVersion</key><string>13</string>
+  <key>CFBundleShortVersionString</key><string>1.3.0</string>
+  <key>CFBundleVersion</key><string>14</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSUIElement</key><true/>

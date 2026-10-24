@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+- Check for stable GitHub updates directly from General settings, with cancellation, clear status, and an update-and-restart action.
+- Verify release ZIP digests and app identity, version, architecture, OS compatibility, and signature integrity before preparing an in-place update. Keep the previous application until the replacement confirms startup, with rollback on installation or startup failure.
+- Publish application ZIPs for in-app updates alongside Apple Silicon and Intel DMGs. Clipboard history stays local; only manual update requests contact GitHub.
+
 ## 1.2.2
 
 - Add Restart to General settings. Pending changes are saved before restarting; a failed save leaves the app running and shows the error.

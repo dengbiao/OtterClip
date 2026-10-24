@@ -36,3 +36,7 @@ jobs:
         run: .build/debug/OtterClip --self-test
       - name: Run native view checks
         run: .build/debug/OtterClip --self-test-ui
+      - name: Run update client fixtures
+        run: .build/debug/OtterClip --self-test-updates
+      - name: Run isolated update installation checks
+        run: .build/debug/OtterClip --self-test-update-installer

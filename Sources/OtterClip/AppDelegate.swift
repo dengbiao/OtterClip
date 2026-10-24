@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingIssue: String?
     private let pastePermissionPrompt = PastePermissionPrompt()
     private var isRestarting = false
+    private var updater: UpdateController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -69,7 +70,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if arguments.contains("--demo") { try seedDemo() }
             if !arguments.contains("--no-monitor") { monitor.start() }
-            if arguments.contains("--show-paste-permissions") {
+            if arguments.contains("--update-failed") {
+                openSettings()
+                settings.showStatus("自动更新未完成，已恢复之前的版本。请稍后再试。")
+            }
+            else if arguments.contains("--show-paste-permissions") {
                 openSettings()
                 settings.selectPane(.privacy)
             }
@@ -81,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panel.showNotice("从下一次复制开始记录 · \(shortcutTitle) 随时唤起")
             }
             if let error = repository.lastError { panel.showNotice("历史恢复提示：\(error.localizedDescription)") }
+            UpdateInstaller.confirmLaunchIfNeeded()
             // Render only this application's own views for development review; no desktop capture.
             if let index = arguments.firstIndex(of: "--render-preview"), arguments.count > index + 1 {
                 let destination = URL(fileURLWithPath: arguments[index + 1], isDirectory: true)
@@ -148,6 +154,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settings.onClearHistory = { [weak self] in self?.clearHistory() }
         settings.onRestart = { [weak self] in self?.restart() }
+        updater = UpdateController(status: { [weak self] message, busy, canCancel in
+            self?.settings.showUpdateStatus(message, isBusy: busy, canCancel: canCancel)
+        }, saveSettings: { [weak self] in
+            self?.settings.savePendingChanges() ?? false
+        }, willInstall: { [weak self] in
+            self?.isRestarting = true
+        })
+        settings.onCheckForUpdates = { [weak self] in self?.updater.checkForUpdates() }
     }
 
     private func buildMenus() {
@@ -321,7 +335,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func about() {
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "OtterClip", .applicationVersion: "1.2.2", .credits: NSAttributedString(string: "本地保存 · 文本 / 图片 / 文件\n默认快捷键 ⌥⌘C")])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "OtterClip", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版", .credits: NSAttributedString(string: "本地保存 · 文本 / 图片 / 文件\n默认快捷键 ⌥⌘C")])
         NSApp.activate(ignoringOtherApps: true)
     }
 

@@ -11,6 +11,8 @@ swift build
 ./scripts/test-core.sh
 .build/debug/OtterClip --self-test
 .build/debug/OtterClip --self-test-ui
+.build/debug/OtterClip --self-test-updates
+.build/debug/OtterClip --self-test-update-installer
 swift test
 ```
 

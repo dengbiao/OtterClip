@@ -2,6 +2,13 @@ import AppKit
 
 MainActor.assumeIsolated {
     if CommandLine.arguments.contains("--self-test") { exit(PlatformChecks.run()) }
+    if CommandLine.arguments.contains("--self-test-update-installer") { exit(UpdateInstallerChecks.run()) }
+    if CommandLine.arguments.contains("--self-test-updates") {
+        Task { exit(await UpdateClientChecks.run()) }
+        RunLoop.main.run()
+        exit(1)
+    }
+    UpdateInstaller.beginLaunchIfNeeded()
     let application = NSApplication.shared
     if let index = CommandLine.arguments.firstIndex(of: "--diagnose-paste"), CommandLine.arguments.count > index + 1 {
         let access = PasteController.accessStatus

@@ -24,7 +24,7 @@ enum SettingsPane: String, CaseIterable {
 
     var contentHeight: CGFloat {
         switch self {
-        case .general: return 356
+        case .general: return 420
         case .capture: return 354
         case .privacy: return 326
         }
@@ -36,6 +36,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     var onChanged: (() -> Void)?
     var onClearHistory: (() -> Void)?
     var onRestart: (() -> Void)?
+    var onCheckForUpdates: (() -> Void)?
     private(set) var selectedPane: SettingsPane = .general
     private let store: PreferencesStore
     private let directory: URL
@@ -49,6 +50,10 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private let accessibilityLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(wrappingLabelWithString: "")
     private let permissionButton = NSButton()
+    private let restartButton = NSButton()
+    private let updateButton = NSButton()
+    private let updateLabel = NSTextField(wrappingLabelWithString: "")
+    private let updateProgress = NSProgressIndicator()
     private var permissionTimer: Timer?
     private let paneContainer = NSView()
     private var panes: [SettingsPane: NSView] = [:]
@@ -226,11 +231,31 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
 
     private func buildGeneralPane() -> NSView {
         let stack = verticalStack(spacing: 12)
+        configureButton(restartButton, title: "重新启动", action: #selector(restartApplication), width: 86)
+        configureButton(updateButton, title: "检查更新", action: #selector(checkForUpdates), width: 86)
+        updateLabel.stringValue = "当前版本 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版") · GitHub"
+        updateLabel.font = .systemFont(ofSize: 11)
+        updateLabel.textColor = secondaryColor
+        updateLabel.maximumNumberOfLines = 2
+        updateLabel.setAccessibilityLabel("更新状态")
+        let updateLabels = verticalStack(spacing: 3)
+        updateLabels.addArrangedSubview(text("软件更新", size: 13))
+        updateLabels.addArrangedSubview(updateLabel)
+        updateProgress.style = .spinning
+        updateProgress.controlSize = .small
+        updateProgress.isDisplayedWhenStopped = false
+        updateProgress.isHidden = true
+        updateProgress.widthAnchor.constraint(equalToConstant: 14).isActive = true
+        updateProgress.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        let updateActions = NSStackView(views: [updateProgress, updateButton])
+        updateActions.orientation = .horizontal
+        updateActions.spacing = 8
         append(card(rows: [
             settingRow("全局快捷键", detail: "随时唤起剪贴板历史", control: shortcut),
             settingRow("历史容量", detail: "收藏内容不计入容量", control: limit),
             settingRow("登录时启动", detail: "登录后在菜单栏运行", control: login),
-            settingRow("重新启动应用", detail: "会先保存当前设置", control: actionButton("重新启动", action: #selector(restartApplication), width: 86))
+            settingRow("重新启动应用", detail: "会先保存当前设置", control: restartButton),
+            alignedRow(labels: updateLabels, control: updateActions, height: 64)
         ]), to: stack)
         let note = text("用快捷键打开，选择一条记录后按回车粘贴。", size: 11, color: secondaryColor)
         append(inset(note, horizontal: 2), to: stack)
@@ -438,14 +463,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         refreshPermission()
     }
 
-    @objc private func saveSettings() { _ = persistSettings() }
+    @objc private func saveSettings() { _ = savePendingChanges() }
 
     @objc private func restartApplication() {
-        guard persistSettings() else { return }
+        guard savePendingChanges() else { return }
         onRestart?()
     }
 
-    private func persistSettings() -> Bool {
+    func savePendingChanges() -> Bool {
         window?.makeFirstResponder(nil)
         let previous = store.value
         store.value.hotKeyIndex = shortcut.indexOfSelectedItem
@@ -466,6 +491,18 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     }
 
     func showStatus(_ text: String) { statusLabel.stringValue = text }
+
+    @objc private func checkForUpdates() { onCheckForUpdates?() }
+
+    func showUpdateStatus(_ message: String, isBusy: Bool, canCancel: Bool) {
+        updateLabel.stringValue = message
+        updateLabel.toolTip = message
+        updateButton.title = isBusy ? (canCancel ? "取消" : "安装中…") : "检查更新"
+        updateButton.isEnabled = !isBusy || canCancel
+        restartButton.isEnabled = !isBusy
+        updateProgress.isHidden = !isBusy
+        if isBusy { updateProgress.startAnimation(nil) } else { updateProgress.stopAnimation(nil) }
+    }
 
     @objc private func toggleLogin() {
         do {

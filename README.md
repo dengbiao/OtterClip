@@ -10,7 +10,7 @@ A small, native macOS clipboard history app. Keep copied text, images, and files
 
 ## Install
 
-Requires **macOS 13 or later**. Download `OtterClip-1.2.2-arm64.dmg` from [Releases](https://github.com/dengbiao/OtterClip/releases), open it, and drag **OtterClip** into Applications. The prebuilt DMG is for Apple Silicon; Intel users can [build from source](#build-from-source).
+Requires **macOS 13 or later**. Download the `OtterClip-1.3.0-arm64.dmg` (Apple Silicon) or `OtterClip-1.3.0-x86_64.dmg` (Intel) from [Releases](https://github.com/dengbiao/OtterClip/releases), open it, and drag **OtterClip** into Applications.
 
 The current release uses an **ad-hoc signature**, without Developer ID notarization. macOS may require you to allow it in **System Settings → Privacy & Security → Open Anyway**. Keep the application in a fixed location before granting permissions. Rebuilding or changing its signature may require granting Accessibility permission again.
 
@@ -20,6 +20,10 @@ The current release uses an **ad-hoc signature**, without Developer ID notarizat
 4. Automatic paste needs Accessibility permission. If it is missing, a dialog confirms that the item is already copied: choose **前往授权** to open macOS Accessibility settings, or **稍后** to return to your app and paste manually with **⌘V**. You can also grant access from settings → **隐私** (Privacy).
 
 To restart, open settings → **通用** (General) → **重新启动**. Pending settings are saved before the app restarts.
+
+For future versions, use settings → **通用** → **检查更新** (Check for Updates). OtterClip checks the latest stable GitHub release for your architecture. Choose **更新并重启** to download, verify, install, and relaunch in place. Settings are saved before installation; history stays in its existing directory. Run the app from a writable Applications folder, rather than the DMG.
+
+The previous app is kept until the replacement confirms startup. Installation or startup failure triggers recovery; if a replacement process cannot safely be stopped, its backup is retained in the adjacent hidden `.OtterClip-update-*` directory for recovery.
 
 The interface is currently in Simplified Chinese. If macOS requests clipboard access, allow it as appropriate for your use.
 
@@ -48,7 +52,7 @@ Arrow keys, Return, and Esc remain available to an input method while composing 
 
 ## Privacy and limits
 
-**No cloud sync, network requests, or telemetry. Clipboard history is stored locally in plain form, without additional encryption.** The data directory has mode `0700`; data files use `0600`. These file permissions do not replace encryption.
+**No cloud sync or telemetry. Clipboard history is stored locally in plain form, without additional encryption.** Only manually checking or downloading an update contacts GitHub; clipboard content and history are never included in update requests. The data directory has mode `0700`; data files use `0600`. These file permissions do not replace encryption.
 
 Data lives in `~/Library/Application Support/ClipShelf/`:
 
@@ -91,6 +95,10 @@ Setting a signing identity does not perform notarization. To create the applicat
 ./scripts/package-release.sh
 ```
 
+The script also creates an architecture-specific application ZIP and `SHA256SUMS`. Publish that ZIP alongside the DMG in a stable GitHub release tagged `vX.Y.Z`; the app version must match the tag. The updater verifies GitHub's SHA-256 asset digest, bundle identity, version, architecture, OS compatibility, and code-signature integrity before installation. Releases currently use ad-hoc signing, so this is not Developer ID publisher verification.
+
+To build release assets for both architectures, run the packaging script separately with `ARCH=arm64` and `ARCH=x86_64`, using separate output directories.
+
 Preview with isolated demo data and no background capture:
 
 ```bash
@@ -104,6 +112,8 @@ open build/OtterClip.app --args --demo --no-monitor --show --data-dir /tmp/otter
 swift build
 .build/debug/OtterClip --self-test
 .build/debug/OtterClip --self-test-ui
+.build/debug/OtterClip --self-test-updates
+.build/debug/OtterClip --self-test-update-installer
 ```
 
 The standalone core checks run with Command Line Tools. Platform checks use a private named pasteboard and temporary data. UI checks exercise the app's own AppKit views and private pasteboards; they do not read/write the system clipboard or send keyboard/mouse events to other apps. These checks do not replace manual testing of cross-app hotkeys and paste with permissions granted.
@@ -114,7 +124,7 @@ XCTest is also available with a **full Xcode installation**:
 swift test
 ```
 
-The macOS CI workflow builds and runs the core, XCTest, platform, and native UI checks.
+The macOS CI workflow builds and runs the core, XCTest, platform, native UI, and update checks. Update fixtures use private network responses and temporary app bundles, without changing the installed application.
 
 ## License and artwork
 
