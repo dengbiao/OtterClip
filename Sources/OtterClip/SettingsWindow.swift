@@ -96,6 +96,12 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         window?.makeKeyAndOrderFront(nil)
     }
 
+    func showPastePermissionSettings() {
+        show()
+        selectPane(.privacy)
+        openAccessibility()
+    }
+
     func windowDidBecomeKey(_ notification: Notification) { refreshPermission() }
 
     func windowWillClose(_ notification: Notification) {

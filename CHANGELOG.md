@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Explain a failed automatic paste with a permission alert before opening settings. The alert confirms that the content is already copied and offers a direct authorization action or a manual-paste fallback.
+- Choosing Later keeps the copied content and returns to the previous app. Repeated paste attempts cannot open overlapping permission alerts.
+
 ## 1.2.0
 
 First public release under the OtterClip name, including the completed changes from development build 1.1.8.

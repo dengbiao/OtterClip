@@ -63,6 +63,7 @@ enum PlatformChecks {
         restored.window?.setFrameAutosaveName("")
         runQuickCopyUI(check: check)
         runPasteReadinessChecks(check: check)
+        runPastePermissionPromptChecks(check: check)
 
         let settingsDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("OtterClipSettingsChecks-\(UUID().uuidString)", isDirectory: true)
@@ -275,6 +276,80 @@ enum PlatformChecks {
               step(targetTerminated: true, isFrontmost: false, physicalModifiers: .maskCommand) == .fail(.targetUnavailable))
         check("automatic paste does not mistake Caps Lock for a held shortcut modifier",
               step(physicalModifiers: .maskAlphaShift) == .send)
+    }
+
+    /// Exercise the real alert configuration and response routing with an injected
+    /// presenter. No dialog is displayed, no permission API is called, and the
+    /// clipboard fixture is confined to a private named board.
+    private static func runPastePermissionPromptChecks(check: (String, Bool) -> Void) {
+        let alert = PastePermissionPrompt.makeAlert()
+        let explanation = alert.messageText + " " + alert.informativeText
+        check("paste permission alert explicitly explains the unfinished automatic paste",
+              explanation.contains("粘贴")
+              && ["失败", "未完成", "无法"].contains { explanation.contains($0) })
+        check("paste permission alert explains the permission cause and preserved copy",
+              explanation.contains("辅助功能") && explanation.contains("已复制")
+              && ["权限", "授权"].contains { explanation.contains($0) })
+        check("paste permission alert offers authorization and a later option",
+              alert.buttons.map(\.title) == ["前往授权", "稍后"])
+
+        var authorizeCalls = 0
+        var laterCalls = 0
+        var callbacksWhilePresenting = false
+        let authorizePrompt = PastePermissionPrompt(present: { _ in
+            callbacksWhilePresenting = authorizeCalls != 0 || laterCalls != 0
+            return .alertFirstButtonReturn
+        })
+        authorizePrompt.show(onAuthorize: { authorizeCalls += 1 }, onLater: { laterCalls += 1 })
+        check("presenting permission guidance never authorizes or opens settings before a choice",
+              !callbacksWhilePresenting)
+        check("choosing authorization invokes only the authorization callback",
+              authorizeCalls == 1 && laterCalls == 0)
+
+        for (label, response) in [
+            ("later", NSApplication.ModalResponse.alertSecondButtonReturn),
+            ("cancel", .cancel),
+            ("close", .abort)
+        ] {
+            var authorizeCalls = 0
+            var laterCalls = 0
+            let prompt = PastePermissionPrompt(present: { _ in response })
+            prompt.show(onAuthorize: { authorizeCalls += 1 }, onLater: { laterCalls += 1 })
+            check("permission prompt \(label) invokes only the later callback",
+                  authorizeCalls == 0 && laterCalls == 1)
+        }
+
+        var presentations = 0
+        var reentrantAuthorizeCalls = 0
+        var reentrantLaterCalls = 0
+        var prompt: PastePermissionPrompt!
+        prompt = PastePermissionPrompt(present: { _ in
+            presentations += 1
+            if presentations == 1 {
+                prompt.show(onAuthorize: { reentrantAuthorizeCalls += 1 },
+                            onLater: { reentrantLaterCalls += 1 })
+            }
+            return .alertSecondButtonReturn
+        })
+        prompt.show(onAuthorize: { reentrantAuthorizeCalls += 1 },
+                    onLater: { reentrantLaterCalls += 1 })
+        check("a reentrant paste request does not present a second permission alert",
+              presentations == 1 && reentrantAuthorizeCalls == 0 && reentrantLaterCalls == 1)
+        prompt.show(onAuthorize: { reentrantAuthorizeCalls += 1 },
+                    onLater: { reentrantLaterCalls += 1 })
+        check("a dismissed permission prompt can be presented on a later paste attempt",
+              presentations == 2 && reentrantAuthorizeCalls == 0 && reentrantLaterCalls == 2)
+
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        let fixture = "权限未开启时保留的复制内容 😀"
+        let wroteFixture = board.setString(fixture, forType: .string)
+        let originalChangeCount = board.changeCount
+        let cancelPrompt = PastePermissionPrompt(present: { _ in .alertSecondButtonReturn })
+        cancelPrompt.show(onAuthorize: {}, onLater: {})
+        check("showing and cancelling permission guidance preserves the private clipboard",
+              wroteFixture && board.changeCount == originalChangeCount && board.string(forType: .string) == fixture)
     }
 
     static func run() -> Int32 {

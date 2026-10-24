@@ -10,14 +10,14 @@
 
 ## 安装
 
-需要 **macOS 13 或更新版本**。从 [Releases](https://github.com/dengbiao/OtterClip/releases) 下载 `OtterClip-1.2.0-arm64.dmg`，打开后将 **OtterClip** 拖入 Applications（应用程序）。预编译 DMG 适用于 Apple Silicon；Intel Mac 可[从源码构建](#从源码构建)。
+需要 **macOS 13 或更新版本**。从 [Releases](https://github.com/dengbiao/OtterClip/releases) 下载 `OtterClip-1.2.1-arm64.dmg`，打开后将 **OtterClip** 拖入 Applications（应用程序）。预编译 DMG 适用于 Apple Silicon；Intel Mac 可[从源码构建](#从源码构建)。
 
 当前版本采用 **ad-hoc 本地签名**，未使用 Developer ID 公证。若 macOS 提示无法验证开发者，可按系统提供的「系统设置 → 隐私与安全性 → 仍要打开」流程允许。建议将应用放在固定位置后再授权；重新编译或更换签名后，可能需要重新授予辅助功能权限。
 
 1. 打开 OtterClip，菜单栏会出现小水獭图标，从下一次复制开始保存历史。左键点击图标直接打开设置，右键点击可展开菜单，包含暂停记录与退出等操作。
 2. 按 **Option + Command + C** 呼出窗口，输入关键词搜索，使用方向键选择结果。
 3. 按 **⌘1–⌘9** 或 **⌘回车** 复制并关闭窗口；按 **回车** 复制、关闭窗口，并粘贴回原应用。
-4. 自动粘贴需要在设置 →「隐私」→「前往授权」中打开系统辅助功能权限。未授权时仍可复制，返回目标应用手动按 **⌘V** 即可。
+4. 自动粘贴需要辅助功能权限。未授权时，会先弹窗说明内容已复制；点「前往授权」可直接打开系统辅助功能设置，或点「稍后」返回原应用手动按 **⌘V** 粘贴。也可以从设置 →「隐私」中授权。
 
 界面目前为简体中文。系统若询问剪贴板访问，请按需允许。
 
