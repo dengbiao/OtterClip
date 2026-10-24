@@ -88,6 +88,27 @@ enum UpdateInstallerChecks {
             check((try? Data(contentsOf: installed.appendingPathComponent("Contents/Info.plist"))) == oldInfo, "preparation does not change installed application")
             UpdateInstaller.discard(prepared)
             check(!fileManager.fileExists(atPath: prepared.stagingDirectory.path), "discard removes only prepared files")
+            // This synthetic Team ID is deliberately unrelated to any release
+            // identity. No signing certificate or account is needed to prove
+            // that strict publisher policy refuses an otherwise valid ad-hoc app.
+            let expectedTeamID = "TEST123456"
+            rejectsApplication("Developer ID publisher policy rejects ad-hoc update before staging") {
+                _ = try UpdateInstaller.prepare(archiveURL: candidateZip, version: "9.8.7", destinationURL: installed, expectedTeamID: expectedTeamID)
+            }
+            let installationSiblings = try fileManager.contentsOfDirectory(atPath: installed.deletingLastPathComponent().path)
+            check(installationSiblings.allSatisfy { !$0.hasPrefix(".OtterClip-update-") }, "publisher rejection leaves no prepared update")
+            for invalidTeamID in ["SHORT", "test123456", "TEST123456\" or true", "ＴEST123456"] {
+                rejectsApplication("invalid publisher identity rejected: \(invalidTeamID)") {
+                    _ = try UpdateInstaller.prepare(archiveURL: candidateZip, version: "9.8.7", destinationURL: installed, expectedTeamID: invalidTeamID)
+                }
+            }
+            let publisherRecheck = try UpdateInstaller.prepare(archiveURL: candidateZip, version: "9.8.7", destinationURL: installed)
+            rejectsApplication("schedule rechecks staged application's Developer ID publisher") {
+                try UpdateInstaller.scheduleInstall(publisherRecheck, expectedTeamID: expectedTeamID)
+            }
+            check(!fileManager.fileExists(atPath: publisherRecheck.stagingDirectory.appendingPathComponent("install.sh").path), "publisher rejection does not create or launch install helper")
+            check((try? Data(contentsOf: installed.appendingPathComponent("Contents/Info.plist"))) == oldInfo, "publisher rejection preserves installed application")
+            UpdateInstaller.discard(publisherRecheck)
             rejectsApplication("version mismatch rejected") { _ = try UpdateInstaller.prepare(archiveURL: candidateZip, version: "9.8.8", destinationURL: installed) }
             for (name, app) in [
                 ("identity mismatch rejected", try fixture("Wrong identity", identity: "com.example.other")),

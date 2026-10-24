@@ -89,7 +89,9 @@ The default signature is ad-hoc. To use your Developer ID identity:
 CODE_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' ./scripts/build-app.sh
 ```
 
-Setting a signing identity does not perform notarization. To create the application, DMG, and source archive in `dist/`:
+Setting a signing identity alone does not perform notarization. For the full Developer ID signing, notarization, and stapling pipeline, see [Formal signing and notarization](docs/signing.md). It requires an authorized certificate and a notarytool Keychain profile. The current published release remains ad-hoc signed.
+
+To create development-signed application, DMG, ZIP, and source archives in `dist/`:
 
 ```bash
 ./scripts/package-release.sh

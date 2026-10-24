@@ -28,6 +28,10 @@ jobs:
           swift --version
       - name: Run standalone core checks
         run: ./scripts/test-core.sh
+      - name: Run signing and notarization fixtures
+        run: |
+          ./scripts/test-signing-preflight.sh
+          ./scripts/test-notarize-release.sh
       - name: Build
         run: swift build
       - name: Run XCTest

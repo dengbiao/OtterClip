@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Prepare a fail-closed Developer ID signing and Apple notarization release mode, with signed DMGs and stapled applications inside updater ZIPs.
+- When running a Developer ID release, require updates from the same Apple Developer team and a valid Developer ID Application certificate chain. Existing development-signed installs can migrate to the first formal release.
+
 ## 1.3.0
 
 - Check for stable GitHub updates directly from General settings, with cancellation, clear status, and an update-and-restart action.

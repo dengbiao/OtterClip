@@ -9,6 +9,8 @@ Use a modern Xcode or Apple Command Line Tools installation with the **macOS 15.
 ```bash
 swift build
 ./scripts/test-core.sh
+./scripts/test-signing-preflight.sh
+./scripts/test-notarize-release.sh
 .build/debug/OtterClip --self-test
 .build/debug/OtterClip --self-test-ui
 .build/debug/OtterClip --self-test-updates

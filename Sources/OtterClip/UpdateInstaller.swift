@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import Security
 
 struct PreparedUpdate: Sendable {
     let stagingDirectory: URL
@@ -116,9 +117,11 @@ enum UpdateInstaller {
     static func prepare(
         archiveURL: URL,
         version: String,
-        destinationURL: URL = Bundle.main.bundleURL
+        destinationURL: URL = Bundle.main.bundleURL,
+        expectedTeamID: String? = nil
     ) throws -> PreparedUpdate {
         let destination = try validateDestination(destinationURL)
+        let publisherTeamID = try expectedPublisherTeamID(expectedTeamID)
         try validateArchive(archiveURL)
         let fileManager = FileManager.default
         let unpack = fileManager.temporaryDirectory.appendingPathComponent("OtterClip-unpack-\(UUID().uuidString)", isDirectory: true)
@@ -128,12 +131,12 @@ enum UpdateInstaller {
         do {
             try run("/usr/bin/unzip", ["-q", archiveURL.path, "-d", unpack.path])
             let unpackedApplication = unpack.appendingPathComponent("OtterClip.app", isDirectory: true)
-            try validateApplication(unpackedApplication, version: version)
+            try validateApplication(unpackedApplication, version: version, publisherTeamID: publisherTeamID)
             // A sibling staging directory guarantees an atomic same-volume rename.
             try fileManager.createDirectory(at: stage, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
             let stagedApplication = stage.appendingPathComponent("OtterClip.app", isDirectory: true)
             try fileManager.copyItem(at: unpackedApplication, to: stagedApplication)
-            try validateApplication(stagedApplication, version: version)
+            try validateApplication(stagedApplication, version: version, publisherTeamID: publisherTeamID)
             try Data(destination.path.utf8).write(to: stage.appendingPathComponent("destination-path"), options: .atomic)
             try Data(version.utf8).write(to: stage.appendingPathComponent("expected-version"), options: .atomic)
             return PreparedUpdate(stagingDirectory: stage, applicationURL: stagedApplication, destinationURL: destination)
@@ -146,7 +149,8 @@ enum UpdateInstaller {
 
     static func scheduleInstall(
         _ prepared: PreparedUpdate,
-        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier
+        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier,
+        expectedTeamID: String? = nil
     ) throws {
         guard processIdentifier > 1 else { throw InstallError.preparationFailed("无法确认当前应用进程。") }
         let destination = try validateDestination(prepared.destinationURL)
@@ -165,7 +169,7 @@ enum UpdateInstaller {
         guard let expectedVersion = try? String(contentsOf: stage.appendingPathComponent("expected-version"), encoding: .utf8) else {
             throw InstallError.preparationFailed("更新版本信息不可用，请重新检查更新。")
         }
-        try validateApplication(prepared.applicationURL, version: expectedVersion)
+        try validateApplication(prepared.applicationURL, version: expectedVersion, publisherTeamID: expectedPublisherTeamID(expectedTeamID))
         let script = stage.appendingPathComponent("install.sh")
         do {
             try Data(installScript.utf8).write(to: script, options: .atomic)
@@ -261,7 +265,7 @@ enum UpdateInstaller {
         return destination
     }
 
-    private static func validateApplication(_ url: URL, version: String) throws {
+    private static func validateApplication(_ url: URL, version: String, publisherTeamID: String?) throws {
         let fileManager = FileManager.default
         guard let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: [.isSymbolicLinkKey]) else {
             throw InstallError.invalidApplication("找不到应用内容。")
@@ -307,6 +311,74 @@ enum UpdateInstaller {
         catch { throw InstallError.invalidApplication("此更新不支持当前 Mac 的处理器。") }
         do { try run("/usr/bin/codesign", ["--verify", "--deep", "--strict", url.path]) }
         catch { throw InstallError.invalidApplication("应用签名校验失败，请重新下载更新。") }
+        if let publisherTeamID { try validatePublisher(url, teamID: publisherTeamID) }
+    }
+
+    // Ad-hoc releases can migrate to the first Developer ID release. Once the
+    // running process has an Apple-issued Developer ID identity, every update
+    // must retain that publisher; signed metadata alone is not proof of trust.
+    private static func expectedPublisherTeamID(_ override: String?) throws -> String? {
+        if let override {
+            guard validTeamID(override) else { throw InstallError.invalidApplication("更新发布者身份无效。") }
+        }
+        var code: SecCode?
+        guard SecCodeCopySelf(SecCSFlags(), &code) == errSecSuccess, let code else {
+            throw InstallError.invalidApplication("无法确认当前应用的签名身份。")
+        }
+        var staticCode: SecStaticCode?
+        guard SecCodeCopyStaticCode(code, SecCSFlags(), &staticCode) == errSecSuccess, let staticCode else {
+            throw InstallError.invalidApplication("无法确认当前应用的签名身份。")
+        }
+        var signingInformation: CFDictionary?
+        let result = SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &signingInformation)
+        if result == errSecCSUnsigned { return override }
+        guard result == errSecSuccess, let information = signingInformation as? [String: Any] else {
+            throw InstallError.invalidApplication("无法确认当前应用的签名身份。")
+        }
+        guard let teamID = information[kSecCodeInfoTeamIdentifier as String] as? String else { return override }
+        guard validTeamID(teamID) else { throw InstallError.invalidApplication("当前应用的发布者身份无效。") }
+        let requirement = try publisherRequirement(teamID: teamID)
+        guard SecCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess else {
+            return override
+        }
+        guard override == nil || override == teamID else {
+            throw InstallError.invalidApplication("更新发布者与当前应用不一致。")
+        }
+        return teamID
+    }
+
+    private static func validTeamID(_ teamID: String) -> Bool {
+        teamID.utf8.count == 10 && teamID.utf8.allSatisfy { (65...90).contains($0) || (48...57).contains($0) }
+    }
+
+    private static func publisherRequirement(teamID: String) throws -> SecRequirement {
+        guard validTeamID(teamID) else { throw InstallError.invalidApplication("更新发布者身份无效。") }
+        // Apple Developer ID Application leaf and Developer ID intermediate
+        // OIDs distinguish this chain from development and self-signed code.
+        let expression = "identifier \"app.clipshelf.mac\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = \"\(teamID)\""
+        var requirement: SecRequirement?
+        guard SecRequirementCreateWithString(expression as CFString, SecCSFlags(), &requirement) == errSecSuccess,
+              let requirement else {
+            throw InstallError.invalidApplication("无法验证更新发布者身份。")
+        }
+        return requirement
+    }
+
+    private static func validatePublisher(_ url: URL, teamID: String) throws {
+        var code: SecStaticCode?
+        let flags = SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckAllArchitectures | kSecCSCheckNestedCode)
+        let requirement = try publisherRequirement(teamID: teamID)
+        guard SecStaticCodeCreateWithPath(url as CFURL, SecCSFlags(), &code) == errSecSuccess, let code,
+              SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess else {
+            throw InstallError.invalidApplication("更新必须由 OtterClip 当前发布者使用有效的 Apple Developer ID 签名。")
+        }
+        var signingInformation: CFDictionary?
+        guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &signingInformation) == errSecSuccess,
+              let information = signingInformation as? [String: Any],
+              information[kSecCodeInfoTeamIdentifier as String] as? String == teamID,
+              information[kSecCodeInfoIdentifier as String] as? String == "app.clipshelf.mac" else {
+            throw InstallError.invalidApplication("更新发布者与当前应用不一致。")
+        }
     }
 
     /// Read ZIP metadata before extraction, including UNIX file types. ZIP64,

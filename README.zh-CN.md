@@ -89,7 +89,9 @@ open build/OtterClip.app
 CODE_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' ./scripts/build-app.sh
 ```
 
-仅设置签名身份不会自动公证。运行以下命令可在 `dist/` 生成应用、DMG 和源码压缩包：
+仅设置签名身份不会自动公证。完整的 Developer ID 签名、公证和票据装订流程见[正式签名与公证](docs/signing.md)，需要获得授权的证书和 notarytool 钥匙串凭据。当前已发布版本仍使用 ad-hoc 签名。
+
+运行以下命令可在 `dist/` 生成开发签名的应用、DMG、ZIP 和源码压缩包：
 
 ```bash
 ./scripts/package-release.sh
