@@ -24,7 +24,7 @@ enum SettingsPane: String, CaseIterable {
 
     var contentHeight: CGFloat {
         switch self {
-        case .general: return 420
+        case .general: return 476
         case .capture: return 354
         case .privacy: return 326
         }
@@ -34,6 +34,7 @@ enum SettingsPane: String, CaseIterable {
 @MainActor
 final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowDelegate {
     var onChanged: (() -> Void)?
+    var onMenuBarIconChanged: (() -> Void)?
     var onClearHistory: (() -> Void)?
     var onRestart: (() -> Void)?
     var onCheckForUpdates: (() -> Void)?
@@ -46,6 +47,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private let files = NSSwitch()
     private let passwords = NSSwitch()
     private let login = NSSwitch()
+    private let menuBarIcon = NSSwitch()
     private let exclusions = NSTextView()
     private let accessibilityLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(wrappingLabelWithString: "")
@@ -184,12 +186,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
             popup.controlSize = .regular
             popup.widthAnchor.constraint(equalToConstant: 138).isActive = true
         }
-        for button in [images, files, passwords, login] {
+        for button in [images, files, passwords, login, menuBarIcon] {
             button.controlSize = .small
-            button.setAccessibilityLabel(button === images ? "记录图片" : button === files ? "记录文件" : button === passwords ? "跳过密码管理器" : "登录启动")
+            button.setAccessibilityLabel(button === images ? "记录图片" : button === files ? "记录文件" : button === passwords ? "跳过密码管理器" : button === login ? "登录启动" : "显示菜单栏图标")
         }
         login.target = self
         login.action = #selector(toggleLogin)
+        menuBarIcon.target = self
+        menuBarIcon.action = #selector(toggleMenuBarIcon)
 
         panes[.general] = buildGeneralPane()
         panes[.capture] = buildCapturePane()
@@ -253,7 +257,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         append(card(rows: [
             settingRow("全局快捷键", detail: "随时唤起剪贴板历史", control: shortcut),
             settingRow("历史容量", detail: "收藏内容不计入容量", control: limit),
-            settingRow("登录时启动", detail: "登录后在菜单栏运行", control: login),
+            settingRow("登录时启动", detail: "登录后自动运行 OtterClip", control: login),
+            settingRow("显示菜单栏图标", detail: "隐藏后仍可用快捷键打开历史与设置", control: menuBarIcon),
             settingRow("重新启动应用", detail: "会先保存当前设置", control: restartButton),
             alignedRow(labels: updateLabels, control: updateActions, height: 64)
         ]), to: stack)
@@ -457,6 +462,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         images.state = store.value.captureImages ? .on : .off
         files.state = store.value.captureFiles ? .on : .off
         passwords.state = store.value.ignorePasswordApps ? .on : .off
+        menuBarIcon.state = store.value.showMenuBarIcon ? .on : .off
         exclusions.string = store.value.excludedApps
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         statusLabel.stringValue = ""
@@ -478,6 +484,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         store.value.captureImages = images.state == .on
         store.value.captureFiles = files.state == .on
         store.value.ignorePasswordApps = passwords.state == .on
+        store.value.showMenuBarIcon = menuBarIcon.state == .on
         store.value.excludedApps = exclusions.string
         store.save()
         if let error = store.lastError {
@@ -516,6 +523,20 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
             login.state = SMAppService.mainApp.status == .enabled ? .on : .off
             statusLabel.stringValue = "登录启动设置失败：\(error.localizedDescription)"
         }
+    }
+
+    @objc private func toggleMenuBarIcon() {
+        let previous = store.value.showMenuBarIcon
+        store.value.showMenuBarIcon = menuBarIcon.state == .on
+        store.save()
+        if let error = store.lastError {
+            store.value.showMenuBarIcon = previous
+            menuBarIcon.state = previous ? .on : .off
+            statusLabel.stringValue = "菜单栏设置保存失败：\(error.localizedDescription)"
+            return
+        }
+        statusLabel.stringValue = store.value.showMenuBarIcon ? "已显示菜单栏图标" : "已隐藏图标 · 用快捷键打开历史，再按 ⌘, 打开设置"
+        onMenuBarIconChanged?()
     }
 
     @objc private func refreshPermission() {

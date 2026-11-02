@@ -149,9 +149,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.hotKeyRegistered = self.hotKey.register(index: self.preferences.value.hotKeyIndex)
             self.updateMenu()
             self.refreshHistory()
-            if !self.hotKeyRegistered { self.settings.showStatus("快捷键已被占用，请选择另一个快捷键。菜单栏入口仍可使用。") }
+            if !self.hotKeyRegistered {
+                let recovery = self.preferences.value.showMenuBarIcon ? "菜单栏入口仍可使用。" : "可重新打开 OtterClip，再从历史窗口进入设置。"
+                self.settings.showStatus("快捷键已被占用，请选择另一个快捷键。\(recovery)")
+            }
             if let error = self.repository.lastError { self.settings.showStatus("保存历史失败：\(error.localizedDescription)") }
         }
+        settings.onMenuBarIconChanged = { [weak self] in self?.updateMenu() }
         settings.onClearHistory = { [weak self] in self?.clearHistory() }
         settings.onRestart = { [weak self] in self?.restart() }
         updater = UpdateController(status: { [weak self] message, busy, canCancel in
@@ -186,7 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         // Preserve the existing menu bar position across the OtterClip rename.
         statusItem.autosaveName = "ClipShelf.SettingsStatusItem"
-        statusItem.isVisible = true
+        statusItem.isVisible = preferences.value.showMenuBarIcon
         let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
         let appIcon: NSImage? = iconURL.flatMap { NSImage(contentsOf: $0) } ?? NSApp.applicationIconImage
         if let image = appIcon?.copy() as? NSImage {
@@ -228,6 +232,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateMenu() {
+        if statusItem.isVisible != preferences.value.showMenuBarIcon {
+            statusItem.isVisible = preferences.value.showMenuBarIcon
+        }
         pauseItem.title = preferences.value.isPaused ? "继续记录" : "暂停记录"
         pauseItem.state = preferences.value.isPaused ? .on : .off
         countItem.title = "\(repository.items.count) 条历史 · \(repository.items.filter(\.isPinned).count) 条收藏"

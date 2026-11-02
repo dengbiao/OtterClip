@@ -119,6 +119,31 @@ enum PlatformChecks {
                 check("unsaved general edits survive changing panes",
                       popups().first { $0.itemTitles == shortcutTitles }?.indexOfSelectedItem == 0
                       && popups().first { $0.itemTitles != shortcutTitles }?.titleOfSelectedItem == historyPopup?.titleOfSelectedItem)
+
+                let menuBarIcon = visibleSettingsViews().compactMap { $0 as? NSSwitch }
+                    .first { $0.accessibilityLabel() == "显示菜单栏图标" }
+                check("general settings offer a visible menu bar icon switch", menuBarIcon?.state == .on)
+                var iconNotifications = 0
+                var generalNotifications = 0
+                settings.onMenuBarIconChanged = { iconNotifications += 1 }
+                settings.onChanged = { generalNotifications += 1 }
+                menuBarIcon?.performClick(nil)
+                let hiddenIcon = PreferencesStore(directory: settingsDirectory)
+                check("hiding the menu bar icon saves and notifies immediately",
+                      menuBarIcon?.state == .off && !hiddenIcon.value.showMenuBarIcon
+                      && preferences.lastError == nil && iconNotifications == 1 && generalNotifications == 0)
+                check("the icon switch does not save unrelated pending settings",
+                      hiddenIcon.value.hotKeyIndex == AppPreferences().hotKeyIndex
+                      && hiddenIcon.value.historyLimit == AppPreferences().historyLimit
+                      && hiddenIcon.value.captureImages && hiddenIcon.value.captureFiles && hiddenIcon.value.ignorePasswordApps
+                      && hiddenIcon.value.excludedApps == AppPreferences().excludedApps
+                      && shortcutPopup?.indexOfSelectedItem == 0 && historyPopup?.titleOfSelectedItem != "最近 300 条")
+                menuBarIcon?.performClick(nil)
+                let restoredIcon = PreferencesStore(directory: settingsDirectory)
+                check("showing the menu bar icon again saves and notifies immediately",
+                      menuBarIcon?.state == .on && restoredIcon.value.showMenuBarIcon
+                      && preferences.lastError == nil && iconNotifications == 2 && generalNotifications == 0)
+                menuBarIcon?.performClick(nil)
                 settings.selectPane(.capture)
                 check("unsaved capture edits survive changing panes", captureSwitches().count == 3 && captureSwitches().allSatisfy { $0.state == .off })
                 settings.selectPane(.privacy)
@@ -133,9 +158,13 @@ enum PlatformChecks {
                       save != nil && savedNotifications == 1 && preferences.lastError == nil
                       && reloaded.value.hotKeyIndex == 0 && reloaded.value.historyLimit == expectedLimit
                       && !reloaded.value.captureImages && !reloaded.value.captureFiles
-                      && !reloaded.value.ignorePasswordApps && reloaded.value.excludedApps == fixture)
+                      && !reloaded.value.ignorePasswordApps && reloaded.value.excludedApps == fixture
+                      && !reloaded.value.showMenuBarIcon)
 
+                settings.window?.close()
+                settings.show()
                 settings.selectPane(.general)
+                check("reopening settings restores the hidden menu icon selection", menuBarIcon?.state == .off)
                 shortcutPopup?.selectItem(at: 1)
                 var restartCalls = 0
                 var savedBeforeRestart = false
@@ -155,6 +184,15 @@ enum PlatformChecks {
                 restart?.performClick(nil)
                 check("a failed settings save keeps the app running instead of restarting",
                       restartCalls == 1 && preferences.lastError != nil && preferences.value.hotKeyIndex == 1)
+
+                let notificationsBeforeIconFailure = iconNotifications
+                let savedNotificationsBeforeIconFailure = savedNotifications
+                menuBarIcon?.performClick(nil)
+                check("an icon save failure restores the switch and preference without notifying",
+                      menuBarIcon?.state == .off && !preferences.value.showMenuBarIcon
+                      && preferences.lastError != nil && iconNotifications == notificationsBeforeIconFailure
+                      && savedNotifications == savedNotificationsBeforeIconFailure)
+                check("an icon save failure preserves other pending edits", shortcutPopup?.indexOfSelectedItem == 0)
 
                 var updateActions = 0
                 settings.onCheckForUpdates = { updateActions += 1 }
@@ -556,21 +594,56 @@ enum PlatformChecks {
             check("privacy preferences persist in the disposable directory",
                   preferences.lastError == nil && !reloaded.value.ignorePasswordApps && reloaded.value.excludes("com.example.Private"))
             let defaults = AppPreferences()
+            check("new installations show the menu bar icon by default", defaults.showMenuBarIcon)
             let defaultHotKey = GlobalHotKey.choices[defaults.hotKeyIndex]
             check("default shortcut is Option Command C",
                   defaultHotKey.title == "⌥⌘C" && defaultHotKey.keyCode == UInt32(kVK_ANSI_C) && defaultHotKey.modifiers == UInt32(optionKey | cmdKey))
+
+            let visibilityDirectory = directory.appendingPathComponent("menu-bar-visibility")
+            try FileManager.default.createDirectory(at: visibilityDirectory, withIntermediateDirectories: true)
+            let visibilityURL = visibilityDirectory.appendingPathComponent("preferences.json")
+            let previousPreferences: [String: Any] = [
+                "historyLimit": 1000, "isPaused": true,
+                "captureImages": false, "captureFiles": false, "ignorePasswordApps": false,
+                "hotKeyIndex": 1, "shortcutSchemaVersion": 2,
+                "excludedApps": "com.example.Private\ncom.example.Editor"
+            ]
+            try JSONSerialization.data(withJSONObject: previousPreferences).write(to: visibilityURL)
+            let visibility = PreferencesStore(directory: visibilityDirectory)
+            func retainsPreviousPreferences(_ value: AppPreferences) -> Bool {
+                value.historyLimit == 1000 && value.isPaused && !value.captureImages
+                    && !value.captureFiles && !value.ignorePasswordApps && value.hotKeyIndex == 1
+                    && value.shortcutSchemaVersion == 2
+                    && value.excludedApps == "com.example.Private\ncom.example.Editor"
+            }
+            check("older preferences gain a visible menu icon without resetting existing settings",
+                  visibility.value.showMenuBarIcon && retainsPreviousPreferences(visibility.value))
+            visibility.value.showMenuBarIcon = false
+            visibility.save()
+            let hiddenVisibility = PreferencesStore(directory: visibilityDirectory)
+            check("a hidden menu icon stays hidden after reloading preferences",
+                  visibility.lastError == nil && !hiddenVisibility.value.showMenuBarIcon
+                  && retainsPreviousPreferences(hiddenVisibility.value))
+            hiddenVisibility.value.showMenuBarIcon = true
+            hiddenVisibility.save()
+            let shownVisibility = PreferencesStore(directory: visibilityDirectory)
+            check("restoring the menu icon persists without changing unrelated preferences",
+                  hiddenVisibility.lastError == nil && shownVisibility.value.showMenuBarIcon
+                  && retainsPreviousPreferences(shownVisibility.value))
 
             let migrationDirectory = directory.appendingPathComponent("shortcut-migration")
             try FileManager.default.createDirectory(at: migrationDirectory, withIntermediateDirectories: true)
             let migrationURL = migrationDirectory.appendingPathComponent("preferences.json")
             var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(AppPreferences())) as! [String: Any]
             legacy.removeValue(forKey: "shortcutSchemaVersion")
+            legacy.removeValue(forKey: "showMenuBarIcon")
             legacy["hotKeyIndex"] = 0
             legacy["historyLimit"] = 500
             try JSONSerialization.data(withJSONObject: legacy).write(to: migrationURL)
             let migrated = PreferencesStore(directory: migrationDirectory)
             check("existing preferences migrate to the requested shortcut without losing history settings",
-                  migrated.value.hotKeyIndex == 4 && migrated.value.historyLimit == 500 && migrated.value.shortcutSchemaVersion == 2 && migrated.lastError == nil)
+                  migrated.value.hotKeyIndex == 4 && migrated.value.historyLimit == 500
+                  && migrated.value.shortcutSchemaVersion == 2 && migrated.value.showMenuBarIcon && migrated.lastError == nil)
             migrated.value.hotKeyIndex = 1
             migrated.save()
             let customShortcut = PreferencesStore(directory: migrationDirectory)

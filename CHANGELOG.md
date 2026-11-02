@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add an immediate, persistent General settings toggle for the menu bar icon, with shortcut and application-reopen access to settings while hidden.
 - Prepare a fail-closed Developer ID signing and Apple notarization release mode, with signed DMGs and stapled applications inside updater ZIPs.
 - When running a Developer ID release, require updates from the same Apple Developer team and a valid Developer ID Application certificate chain. Existing development-signed installs can migrate to the first formal release.
 

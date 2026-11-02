@@ -9,6 +9,28 @@ struct AppPreferences: Codable {
     var hotKeyIndex = 4
     var shortcutSchemaVersion: Int? = 2
     var excludedApps = "com.apple.ScreenSharing\ncom.apple.RemoteDesktop"
+    var showMenuBarIcon = true
+
+    private enum CodingKeys: String, CodingKey {
+        case historyLimit, isPaused, captureImages, captureFiles, ignorePasswordApps
+        case hotKeyIndex, shortcutSchemaVersion, excludedApps, showMenuBarIcon
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        historyLimit = try values.decode(Int.self, forKey: .historyLimit)
+        isPaused = try values.decode(Bool.self, forKey: .isPaused)
+        captureImages = try values.decode(Bool.self, forKey: .captureImages)
+        captureFiles = try values.decode(Bool.self, forKey: .captureFiles)
+        ignorePasswordApps = try values.decode(Bool.self, forKey: .ignorePasswordApps)
+        hotKeyIndex = try values.decode(Int.self, forKey: .hotKeyIndex)
+        shortcutSchemaVersion = try values.decodeIfPresent(Int.self, forKey: .shortcutSchemaVersion)
+        excludedApps = try values.decode(String.self, forKey: .excludedApps)
+        // Keep existing installations visible without resetting any older preferences.
+        showMenuBarIcon = try values.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? true
+    }
 
     static let passwordApps: Set<String> = [
         "com.agilebits.onepassword7", "com.1password.1password", "com.agilebits.onepassword-osx",

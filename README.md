@@ -19,6 +19,8 @@ The current release uses an **ad-hoc signature**, without Developer ID notarizat
 3. Press **⌘1–⌘9** or **⌘Return** to copy and dismiss. Press **Return** to copy, dismiss, and paste into the previous app.
 4. Automatic paste needs Accessibility permission. If it is missing, a dialog confirms that the item is already copied: choose **前往授权** to open macOS Accessibility settings, or **稍后** to return to your app and paste manually with **⌘V**. You can also grant access from settings → **隐私** (Privacy).
 
+To hide the menu bar icon, turn off **显示菜单栏图标** in settings → **通用** (General). The change takes effect immediately and is remembered after restarting. Use your global shortcut to open history, then press **⌘,** to return to settings and show the icon again. Reopening OtterClip from Applications also opens history if your shortcut is unavailable.
+
 To restart, open settings → **通用** (General) → **重新启动**. Pending settings are saved before the app restarts.
 
 For future versions, use settings → **通用** → **检查更新** (Check for Updates). OtterClip checks the latest stable GitHub release for your architecture. Choose **更新并重启** to download, verify, install, and relaunch in place. Settings are saved before installation; history stays in its existing directory. Run the app from a writable Applications folder, rather than the DMG.
